@@ -1,0 +1,3 @@
+<div>
+  Publishes successful builds to Trac based on tickets referenced in commit messages.
+</div>
