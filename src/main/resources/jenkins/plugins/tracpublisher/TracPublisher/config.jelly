@@ -1,14 +1,14 @@
 <j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
 	<f:entry title="Jenkins Address" field="buildServerAddress">
-		<f:textbox field="buildServerAddress" value="${descriptor.buildServerAddress}" />
+		<f:textbox field="buildServerAddress" />
 	</f:entry>
 	<f:entry title="Trac XMLRPC URL" field="rpcAddress">
-		<f:textbox field="rpcAddress" value="${descriptor.rpcAddress}" />
+		<f:textbox field="rpcAddress" />
 	</f:entry>
 	<f:entry title="Trac XMLRPC Username" field="username">
-		<f:textbox field="username" value="${descriptor.username}" />
+		<f:textbox field="username" />
 	</f:entry>
 	<f:entry title="Trac XMLRPC Password" field="password">
-		<f:password field="password" value="${descriptor.password}" />
+		<f:password field="password" />
 	</f:entry>
 </j:jelly>

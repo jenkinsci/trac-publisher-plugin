@@ -40,19 +40,14 @@ import org.kohsuke.stapler.StaplerRequest;
  */
 public class TracPublisher extends Notifier {
 
-	private String buildServerAddress;
-	private String rpcAddress;
-	private String username;
-	private String password;
-
-	public TracPublisher() {
-		super();
-	}
+	public String buildServerAddress;
+	public String rpcAddress;
+	public String username;
+	public String password;
 
 	@DataBoundConstructor
 	public TracPublisher(String buildServerAddress, String rpcAddress,
 			String username, String password) {
-		super();
 		this.buildServerAddress = buildServerAddress;
 		this.rpcAddress = rpcAddress;
 		this.username = username;
