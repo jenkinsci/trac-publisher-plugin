@@ -1,0 +1,3 @@
+= Trac Publisher Plugin =
+
+A plugin to publish successful builds as comments on related Trac tickets.
