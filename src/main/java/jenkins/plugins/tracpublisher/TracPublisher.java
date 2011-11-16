@@ -1,4 +1,4 @@
-package org.openxdata.buildplugins;
+package jenkins.plugins.tracpublisher;
 
 import hudson.Extension;
 import hudson.Launcher;

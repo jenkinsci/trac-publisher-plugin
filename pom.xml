@@ -7,7 +7,6 @@
 		<version>1.399</version>
 	</parent>
 
-	<groupId>org.openxdata.buildplugins</groupId>
 	<artifactId>trac-publisher-plugin</artifactId>
 	<version>1.0-SNAPSHOT</version>
 	<packaging>hpi</packaging>
