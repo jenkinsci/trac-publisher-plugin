@@ -72,50 +72,97 @@ public class TracPublisher extends Notifier {
 		Result result = build.getResult();
 		if (Result.SUCCESS.equals(result)) {
 
-			// Build set of affected issues for this build using commit msgs
-			Set<Integer> affectedIssues = new HashSet<Integer>();
-			ChangeLogSet<? extends Entry> changes = build.getChangeSet();
-			for (Entry change : changes) {
-				String message = change.getMsg();
-				Matcher matcher = issuePattern.matcher(message);
-				while (matcher.find()) {
-					String issueString = matcher.group(1);
-					Integer issue = Integer.parseInt(issueString);
-					affectedIssues.add(issue);
-				}
+			Set<Integer> correctedIssues = new HashSet<Integer>();
+			Set<Integer> successfulIssues = new HashSet<Integer>();
+
+			// Scan for failed builds prior to this one, and include them.
+			AbstractBuild<?, ?> priorBuild = build.getPreviousBuild();
+			while (priorBuild != null
+					&& !Result.SUCCESS.equals(priorBuild.getResult())) {
+				correctedIssues.addAll(getIssueRefs(priorBuild));
+				priorBuild = priorBuild.getPreviousBuild();
 			}
 
-			if (affectedIssues.size() > 0)
+			successfulIssues.addAll(getIssueRefs(build));
+
+			// Only update once, direct ref supercedes prior ref
+			correctedIssues.removeAll(successfulIssues);
+
+			if (correctedIssues.size() + successfulIssues.size() > 0)
 				listener.getLogger().format(
 						"Updating %d Trac issue(s): server=%s, user=%s\n",
-						affectedIssues.size(), rpcAddress, username);
+						successfulIssues.size(), rpcAddress, username);
 
-			// Run through the issues and update them with the build
-			for (Integer issue : affectedIssues) {
-				try {
-					String buildDN = build.getFullDisplayName();
-					listener.getLogger().format("Updating issue %d with %s\n:",
-							issue, buildDN);
-					updateIssue(issue, buildDN, build.getUrl());
-				} catch (XmlRpcException e) {
-					e.printStackTrace();
-				}
-			}
+			for (Integer issue : successfulIssues)
+				updateSuccessfulIssue(build, listener, issue);
+
+			for (Integer issue : correctedIssues)
+				updateCorrectedIssue(build, listener, issue);
 		}
 
 		return true;
 	}
 
+	private void updateCorrectedIssue(AbstractBuild<?, ?> build,
+			BuildListener listener, Integer issue) throws MalformedURLException {
+		try {
+			String buildDN = build.getFullDisplayName();
+			String buildUrl = build.getUrl();
+			listener.getLogger().format(
+					"Updating corrected issue %d with %s\n:", issue, buildDN);
+			updateIssue("Referenced in unsuccessful builds prior to", issue,
+					buildDN, buildUrl);
+		} catch (XmlRpcException e) {
+			e.printStackTrace();
+		}
+	}
+
+	private void updateSuccessfulIssue(AbstractBuild<?, ?> build,
+			BuildListener listener, Integer issue) throws MalformedURLException {
+		try {
+			String buildDN = build.getFullDisplayName();
+			String buildUrl = build.getUrl();
+			listener.getLogger().format(
+					"Updating successful issue %d with %s\n:", issue, buildDN);
+			updateIssue("Referenced in build", issue, buildDN, buildUrl);
+		} catch (XmlRpcException e) {
+			e.printStackTrace();
+		}
+	}
+
+	/**
+	 * Returns a list of issue ids referenced in the given build's changeset
+	 * messages.
+	 * 
+	 * @param build
+	 * @return a set of issues referenced or an empty list (never null)
+	 */
+	private Set<Integer> getIssueRefs(AbstractBuild<?, ?> build) {
+		Set<Integer> referencedIssues = new HashSet<Integer>();
+		ChangeLogSet<? extends Entry> changes = build.getChangeSet();
+		for (Entry change : changes) {
+			String message = change.getMsg();
+			Matcher matcher = issuePattern.matcher(message);
+			while (matcher.find()) {
+				String issueString = matcher.group(1);
+				Integer issue = Integer.parseInt(issueString);
+				referencedIssues.add(issue);
+			}
+		}
+		return referencedIssues;
+	}
+
 	@SuppressWarnings("rawtypes")
-	private void updateIssue(Integer issueNumber, String buildName, String url)
-			throws MalformedURLException, XmlRpcException {
+	private void updateIssue(String ticketMessage, Integer issueNumber,
+			String buildName, String url) throws MalformedURLException,
+			XmlRpcException {
 		XmlRpcClient client = new XmlRpcClient();
 		XmlRpcClientConfigImpl config = new XmlRpcClientConfigImpl();
 		config.setBasicUserName(username);
 		config.setBasicPassword(password);
 		config.setServerURL(new URL(rpcAddress));
 		client.setConfig(config);
-		String message = String.format("Referenced in build [%s/%s %s]",
+		String message = String.format("%s [%s/%s %s]", ticketMessage,
 				buildServerAddress, url, buildName);
 		Object[] params = new Object[] { issueNumber, message, new HashMap(),
 				Boolean.FALSE };
