@@ -27,6 +27,7 @@ import net.sf.json.JSONObject;
 import org.apache.xmlrpc.XmlRpcException;
 import org.apache.xmlrpc.client.XmlRpcClient;
 import org.apache.xmlrpc.client.XmlRpcClientConfigImpl;
+import org.apache.xmlrpc.client.XmlRpcCommonsTransportFactory;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.StaplerRequest;
 
@@ -157,6 +158,7 @@ public class TracPublisher extends Notifier {
 			String buildName, String url) throws MalformedURLException,
 			XmlRpcException {
 		XmlRpcClient client = new XmlRpcClient();
+		client.setTransportFactory(new XmlRpcCommonsTransportFactory(client));
 		XmlRpcClientConfigImpl config = new XmlRpcClientConfigImpl();
 		config.setBasicUserName(username);
 		config.setBasicPassword(password);
