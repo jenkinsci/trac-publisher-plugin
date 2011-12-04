@@ -7,7 +7,7 @@
 	</parent>
 
 	<artifactId>trac-publisher-plugin</artifactId>
-	<version>1.2-SNAPSHOT</version>
+	<version>1.2</version>
 	<packaging>hpi</packaging>
 
 	<name>Trac Publisher Plugin</name>
