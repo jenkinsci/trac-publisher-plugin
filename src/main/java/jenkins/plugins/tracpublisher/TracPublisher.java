@@ -108,15 +108,15 @@ public class TracPublisher extends Notifier {
 	    correctedIssues.removeAll(successfulIssues);
 
 	    if (correctedIssues.size() + successfulIssues.size() > 0)
-		listener.getLogger().format(
+		LOGGER.info(String.format(
 			"Updating %d Trac issue(s): server=%s, user=%s\n",
-			successfulIssues.size(), rpcAddress, username);
+			successfulIssues.size(), rpcAddress, username));
 
 	    for (Integer issue : successfulIssues)
-		updateSuccessfulIssue(build, listener, issue);
+		updateSuccessfulIssue(build, issue);
 
 	    for (Integer issue : correctedIssues)
-		updateCorrectedIssue(build, listener, issue);
+		updateCorrectedIssue(build, issue);
 	}
 
 	return true;
@@ -227,13 +227,13 @@ public class TracPublisher extends Notifier {
 	}
     }
 
-    private void updateCorrectedIssue(AbstractBuild<?, ?> build,
-	    BuildListener listener, Integer issue) throws MalformedURLException {
+    private void updateCorrectedIssue(AbstractBuild<?, ?> build, Integer issue)
+	    throws MalformedURLException {
 	try {
 	    String buildDN = build.getFullDisplayName();
 	    String buildUrl = build.getUrl();
-	    listener.getLogger().format(
-		    "Updating corrected issue %d with %s\n:", issue, buildDN);
+	    LOGGER.info(String.format("Updating corrected issue %d with %s\n:",
+		    issue, buildDN));
 
 	    StringBuilder aggregateComment = createAggregateComment(build,
 		    issue);
@@ -247,13 +247,13 @@ public class TracPublisher extends Notifier {
 	}
     }
 
-    private void updateSuccessfulIssue(AbstractBuild<?, ?> build,
-	    BuildListener listener, Integer issue) throws MalformedURLException {
+    private void updateSuccessfulIssue(AbstractBuild<?, ?> build, Integer issue)
+	    throws MalformedURLException {
 	try {
 	    String buildDN = build.getFullDisplayName();
 	    String buildUrl = build.getUrl();
-	    listener.getLogger().format(
-		    "Updating successful issue %d with %s\n:", issue, buildDN);
+	    LOGGER.info(String.format(
+		    "Updating successful issue %d with %s\n:", issue, buildDN));
 
 	    StringBuilder aggregateComment = createAggregateComment(build,
 		    issue);
