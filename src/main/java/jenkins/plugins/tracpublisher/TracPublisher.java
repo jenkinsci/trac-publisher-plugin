@@ -36,192 +36,192 @@ import org.kohsuke.stapler.StaplerRequest;
  * notifier searches the changesets for references to ticket numbers and adds a
  * link to the jenkins build to those issues. It enables people to easily find
  * builds containing changes related to issues.
- * 
+ *
  * @author batkinson
  */
 public class TracPublisher extends Notifier {
 
-	public String buildServerAddress;
-	public String rpcAddress;
-	public String username;
-	public String password;
+    public String buildServerAddress;
+    public String rpcAddress;
+    public String username;
+    public String password;
 
-	@DataBoundConstructor
-	public TracPublisher(String buildServerAddress, String rpcAddress,
-			String username, String password) {
-		this.buildServerAddress = buildServerAddress;
-		this.rpcAddress = rpcAddress;
-		this.username = username;
-		this.password = password;
-	}
+    @DataBoundConstructor
+    public TracPublisher(String buildServerAddress, String rpcAddress,
+            String username, String password) {
+        this.buildServerAddress = buildServerAddress;
+        this.rpcAddress = rpcAddress;
+        this.username = username;
+        this.password = password;
+    }
 
-	public BuildStepMonitor getRequiredMonitorService() {
-		return BuildStepMonitor.NONE;
-	}
+    public BuildStepMonitor getRequiredMonitorService() {
+        return BuildStepMonitor.NONE;
+    }
 
-	@Override
-	public boolean needsToRunAfterFinalized() {
-		return true;
-	}
+    @Override
+    public boolean needsToRunAfterFinalized() {
+        return true;
+    }
 
-	Pattern issuePattern = Pattern.compile("[#](\\d+)");
+    Pattern issuePattern = Pattern.compile("[#](\\d+)");
 
-	@Override
-	public boolean perform(AbstractBuild<?, ?> build, Launcher launcher,
-			BuildListener listener) throws InterruptedException, IOException {
+    @Override
+    public boolean perform(AbstractBuild<?, ?> build, Launcher launcher,
+            BuildListener listener) throws InterruptedException, IOException {
 
-		Result result = build.getResult();
-		if (Result.SUCCESS.equals(result)) {
+        Result result = build.getResult();
+        if (Result.SUCCESS.equals(result)) {
 
-			Set<Integer> correctedIssues = new HashSet<Integer>();
-			Set<Integer> successfulIssues = new HashSet<Integer>();
+            Set<Integer> correctedIssues = new HashSet<Integer>();
+            Set<Integer> successfulIssues = new HashSet<Integer>();
 
-			// Scan for failed builds prior to this one, and include them.
-			AbstractBuild<?, ?> priorBuild = build.getPreviousBuild();
-			while (priorBuild != null
-					&& !Result.SUCCESS.equals(priorBuild.getResult())) {
-				correctedIssues.addAll(getIssueRefs(priorBuild));
-				priorBuild = priorBuild.getPreviousBuild();
-			}
+            // Scan for failed builds prior to this one, and include them.
+            AbstractBuild<?, ?> priorBuild = build.getPreviousBuild();
+            while (priorBuild != null
+                    && !Result.SUCCESS.equals(priorBuild.getResult())) {
+                correctedIssues.addAll(getIssueRefs(priorBuild));
+                priorBuild = priorBuild.getPreviousBuild();
+            }
 
-			successfulIssues.addAll(getIssueRefs(build));
+            successfulIssues.addAll(getIssueRefs(build));
 
-			// Only update once, direct ref supercedes prior ref
-			correctedIssues.removeAll(successfulIssues);
+            // Only update once, direct ref supercedes prior ref
+            correctedIssues.removeAll(successfulIssues);
 
-			if (correctedIssues.size() + successfulIssues.size() > 0)
-				listener.getLogger().format(
-						"Updating %d Trac issue(s): server=%s, user=%s\n",
-						successfulIssues.size(), rpcAddress, username);
+            if (correctedIssues.size() + successfulIssues.size() > 0)
+                listener.getLogger().format(
+                        "Updating %d Trac issue(s): server=%s, user=%s\n",
+                        successfulIssues.size(), rpcAddress, username);
 
-			for (Integer issue : successfulIssues)
-				updateSuccessfulIssue(build, listener, issue);
+            for (Integer issue : successfulIssues)
+                updateSuccessfulIssue(build, listener, issue);
 
-			for (Integer issue : correctedIssues)
-				updateCorrectedIssue(build, listener, issue);
-		}
+            for (Integer issue : correctedIssues)
+                updateCorrectedIssue(build, listener, issue);
+        }
 
-		return true;
-	}
+        return true;
+    }
 
-	private void updateCorrectedIssue(AbstractBuild<?, ?> build,
-			BuildListener listener, Integer issue) throws MalformedURLException {
-		try {
-			String buildDN = build.getFullDisplayName();
-			String buildUrl = build.getUrl();
-			listener.getLogger().format(
-					"Updating corrected issue %d with %s\n:", issue, buildDN);
-			updateIssue("Referenced in unsuccessful builds prior to", issue,
-					buildDN, buildUrl);
-		} catch (XmlRpcException e) {
-			e.printStackTrace();
-		}
-	}
+    private void updateCorrectedIssue(AbstractBuild<?, ?> build,
+            BuildListener listener, Integer issue) throws MalformedURLException {
+        try {
+            String buildDN = build.getFullDisplayName();
+            String buildUrl = build.getUrl();
+            listener.getLogger().format(
+                    "Updating corrected issue %d with %s\n:", issue, buildDN);
+            updateIssue("Referenced in unsuccessful builds prior to", issue,
+                    buildDN, buildUrl);
+        } catch (XmlRpcException e) {
+            e.printStackTrace();
+        }
+    }
 
-	private void updateSuccessfulIssue(AbstractBuild<?, ?> build,
-			BuildListener listener, Integer issue) throws MalformedURLException {
-		try {
-			String buildDN = build.getFullDisplayName();
-			String buildUrl = build.getUrl();
-			listener.getLogger().format(
-					"Updating successful issue %d with %s\n:", issue, buildDN);
-			updateIssue("Referenced in build", issue, buildDN, buildUrl);
-		} catch (XmlRpcException e) {
-			e.printStackTrace();
-		}
-	}
+    private void updateSuccessfulIssue(AbstractBuild<?, ?> build,
+            BuildListener listener, Integer issue) throws MalformedURLException {
+        try {
+            String buildDN = build.getFullDisplayName();
+            String buildUrl = build.getUrl();
+            listener.getLogger().format(
+                    "Updating successful issue %d with %s\n:", issue, buildDN);
+            updateIssue("Referenced in build", issue, buildDN, buildUrl);
+        } catch (XmlRpcException e) {
+            e.printStackTrace();
+        }
+    }
 
-	/**
-	 * Returns a list of issue ids referenced in the given build's changeset
-	 * messages.
-	 * 
-	 * @param build
-	 * @return a set of issues referenced or an empty list (never null)
-	 */
-	private Set<Integer> getIssueRefs(AbstractBuild<?, ?> build) {
-		Set<Integer> referencedIssues = new HashSet<Integer>();
-		ChangeLogSet<? extends Entry> changes = build.getChangeSet();
-		for (Entry change : changes) {
-			String message = change.getMsg();
-			Matcher matcher = issuePattern.matcher(message);
-			while (matcher.find()) {
-				String issueString = matcher.group(1);
-				Integer issue = Integer.parseInt(issueString);
-				referencedIssues.add(issue);
-			}
-		}
-		return referencedIssues;
-	}
+    /**
+     * Returns a list of issue ids referenced in the given build's changeset
+     * messages.
+     *
+     * @param build
+     * @return a set of issues referenced or an empty list (never null)
+     */
+    private Set<Integer> getIssueRefs(AbstractBuild<?, ?> build) {
+        Set<Integer> referencedIssues = new HashSet<Integer>();
+        ChangeLogSet<? extends Entry> changes = build.getChangeSet();
+        for (Entry change : changes) {
+            String message = change.getMsg();
+            Matcher matcher = issuePattern.matcher(message);
+            while (matcher.find()) {
+                String issueString = matcher.group(1);
+                Integer issue = Integer.parseInt(issueString);
+                referencedIssues.add(issue);
+            }
+        }
+        return referencedIssues;
+    }
 
-	@SuppressWarnings("rawtypes")
-	private void updateIssue(String ticketMessage, Integer issueNumber,
-			String buildName, String url) throws MalformedURLException,
-			XmlRpcException {
-		XmlRpcClient client = new XmlRpcClient();
-		client.setTransportFactory(new XmlRpcCommonsTransportFactory(client));
-		XmlRpcClientConfigImpl config = new XmlRpcClientConfigImpl();
-		config.setBasicUserName(username);
-		config.setBasicPassword(password);
-		config.setServerURL(new URL(rpcAddress));
-		client.setConfig(config);
-		String message = String.format("%s [%s/%s %s]", ticketMessage,
-				buildServerAddress, url, buildName);
-		Object[] params = new Object[] { issueNumber, message, new HashMap(),
-				Boolean.FALSE };
-		client.execute("ticket.update", params);
-	}
+    @SuppressWarnings("rawtypes")
+    private void updateIssue(String ticketMessage, Integer issueNumber,
+            String buildName, String url) throws MalformedURLException,
+            XmlRpcException {
+        XmlRpcClient client = new XmlRpcClient();
+        client.setTransportFactory(new XmlRpcCommonsTransportFactory(client));
+        XmlRpcClientConfigImpl config = new XmlRpcClientConfigImpl();
+        config.setBasicUserName(username);
+        config.setBasicPassword(password);
+        config.setServerURL(new URL(rpcAddress));
+        client.setConfig(config);
+        String message = String.format("%s [%s/%s %s]", ticketMessage,
+                buildServerAddress, url, buildName);
+        Object[] params = new Object[] { issueNumber, message, new HashMap(),
+                Boolean.FALSE };
+        client.execute("ticket.update", params);
+    }
 
-	@Extension
-	public static final class DescriptorImpl extends
-			BuildStepDescriptor<Publisher> {
+    @Extension
+    public static final class DescriptorImpl extends
+            BuildStepDescriptor<Publisher> {
 
-		public DescriptorImpl() {
-			load();
-		}
+        public DescriptorImpl() {
+            load();
+        }
 
-		private String buildServerAddress;
-		private String rpcAddress;
-		private String username;
-		private String password;
+        private String buildServerAddress;
+        private String rpcAddress;
+        private String username;
+        private String password;
 
-		@Override
-		public boolean isApplicable(Class<? extends AbstractProject> jobType) {
-			return true;
-		}
+        @Override
+        public boolean isApplicable(Class<? extends AbstractProject> jobType) {
+            return true;
+        }
 
-		@Override
-		public String getDisplayName() {
-			return "Add link to Trac issues";
-		}
+        @Override
+        public String getDisplayName() {
+            return "Add link to Trac issues";
+        }
 
-		@Override
-		public boolean configure(StaplerRequest req, JSONObject json)
-				throws hudson.model.Descriptor.FormException {
+        @Override
+        public boolean configure(StaplerRequest req, JSONObject json)
+                throws hudson.model.Descriptor.FormException {
 
-			buildServerAddress = json.getString("buildServerAddress");
-			rpcAddress = json.getString("rpcAddress");
-			username = json.getString("username");
-			password = json.getString("password");
+            buildServerAddress = json.getString("buildServerAddress");
+            rpcAddress = json.getString("rpcAddress");
+            username = json.getString("username");
+            password = json.getString("password");
 
-			save();
+            save();
 
-			return super.configure(req, json);
-		}
+            return super.configure(req, json);
+        }
 
-		public String getBuildServerAddress() {
-			return buildServerAddress;
-		}
+        public String getBuildServerAddress() {
+            return buildServerAddress;
+        }
 
-		public String getRpcAddress() {
-			return rpcAddress;
-		}
+        public String getRpcAddress() {
+            return rpcAddress;
+        }
 
-		public String getUsername() {
-			return username;
-		}
+        public String getUsername() {
+            return username;
+        }
 
-		public String getPassword() {
-			return password;
-		}
-	}
+        public String getPassword() {
+            return password;
+        }
+    }
 }
