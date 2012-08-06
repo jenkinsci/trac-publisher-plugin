@@ -22,6 +22,8 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import jenkins.model.Jenkins;
+
 import net.sf.json.JSONObject;
 
 import org.apache.xmlrpc.XmlRpcException;
@@ -47,9 +49,8 @@ public class TracPublisher extends Notifier {
 	public String password;
 
 	@DataBoundConstructor
-	public TracPublisher(String buildServerAddress, String rpcAddress,
-			String username, String password) {
-		this.buildServerAddress = buildServerAddress;
+	public TracPublisher(String rpcAddress, String username, String password) {
+		this.buildServerAddress = Jenkins.getInstance().getRootUrl();
 		this.rpcAddress = rpcAddress;
 		this.username = username;
 		this.password = password;
@@ -179,7 +180,6 @@ public class TracPublisher extends Notifier {
 			load();
 		}
 
-		private String buildServerAddress;
 		private String rpcAddress;
 		private String username;
 		private String password;
@@ -198,7 +198,6 @@ public class TracPublisher extends Notifier {
 		public boolean configure(StaplerRequest req, JSONObject json)
 				throws hudson.model.Descriptor.FormException {
 
-			buildServerAddress = json.getString("buildServerAddress");
 			rpcAddress = json.getString("rpcAddress");
 			username = json.getString("username");
 			password = json.getString("password");
@@ -206,10 +205,6 @@ public class TracPublisher extends Notifier {
 			save();
 
 			return super.configure(req, json);
-		}
-
-		public String getBuildServerAddress() {
-			return buildServerAddress;
 		}
 
 		public String getRpcAddress() {
