@@ -22,6 +22,8 @@ import org.apache.xmlrpc.XmlRpcException;
 import org.apache.xmlrpc.client.XmlRpcClient;
 import org.apache.xmlrpc.client.XmlRpcClientConfigImpl;
 import org.apache.xmlrpc.client.XmlRpcCommonsTransportFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Encapsulates the updating of Trac issues from Jenkins. An instance is meant
@@ -33,6 +35,8 @@ import org.apache.xmlrpc.client.XmlRpcCommonsTransportFactory;
  */
 public class TracIssueUpdater {
 
+	private static Logger log = LoggerFactory.getLogger(TracIssueUpdater.class);
+
 	Pattern issuePattern = Pattern.compile("[#](\\d+)");
 
 	AbstractBuild<?, ?> build;
@@ -42,7 +46,7 @@ public class TracIssueUpdater {
 	String username;
 	String password;
 	boolean useDetailedComments;
-	PrintStream log;
+	PrintStream buildLog;
 
 	HashMap<Integer, StringBuilder> priorIssueRefs;
 	HashMap<Integer, StringBuilder> issueRefs;
@@ -57,7 +61,7 @@ public class TracIssueUpdater {
 		this.username = username;
 		this.password = password;
 		this.useDetailedComments = useDetailedComments;
-		this.log = listener.getLogger();
+		this.buildLog = listener.getLogger();
 		priorIssueRefs = new HashMap<Integer, StringBuilder>();
 		issueRefs = new HashMap<Integer, StringBuilder>();
 	}
@@ -103,7 +107,8 @@ public class TracIssueUpdater {
 			correctedIssues.removeAll(successfulIssues);
 
 			if (correctedIssues.size() + successfulIssues.size() > 0)
-				log.format("Updating %d Trac issue(s): server=%s, user=%s\n",
+				buildLog.format(
+						"Updating %d Trac issue(s): server=%s, user=%s\n",
 						successfulIssues.size(), rpcAddress, username);
 
 			for (Integer issue : successfulIssues)
@@ -125,11 +130,11 @@ public class TracIssueUpdater {
 	private void updateCorrectedIssue(Integer issue)
 			throws MalformedURLException {
 		try {
-			log.format("Updating corrected issue %d with %s\n:", issue,
+			buildLog.format("Updating corrected issue %d with %s\n:", issue,
 					build.getDisplayName());
 			updateIssue(issue, true);
 		} catch (XmlRpcException e) {
-			e.printStackTrace();
+			log.error("failed to update corrected issue", e);
 		}
 	}
 
@@ -143,11 +148,11 @@ public class TracIssueUpdater {
 	private void updateSuccessfulIssue(Integer issue)
 			throws MalformedURLException {
 		try {
-			log.format("Updating successful issue %d with %s\n:", issue,
+			buildLog.format("Updating successful issue %d with %s\n:", issue,
 					build.getDisplayName());
 			updateIssue(issue, false);
 		} catch (XmlRpcException e) {
-			e.printStackTrace();
+			log.error("failed to update successful issue", e);
 		}
 	}
 
