@@ -209,7 +209,10 @@ public class TracIssueUpdater {
 	 * Generates a message based on the specified message and the internal state
 	 * of the updater.
 	 * 
-	 * @param ticketMessage
+	 * @param issueNumber
+	 *            the issue to create the message for
+	 * @param isCorrected
+	 *            whether the message is for a 'corrected' issue
 	 * @return
 	 */
 	private String createMessage(Integer issueNumber, boolean isCorrected) {
@@ -217,16 +220,16 @@ public class TracIssueUpdater {
 		String message = "";
 		String buildDN = build.getFullDisplayName();
 		String buildUrl = build.getUrl();
-		String ticketMessage = isCorrected ? "Referenced in unsuccessful builds prior to"
+		String issueMessage = isCorrected ? "Referenced in unsuccessful builds prior to"
 				: "Referenced in build";
 
 		if (useDetailedComments) {
 			String scmMessages = (isCorrected ? priorIssueRefs.get(issueNumber)
 					: issueRefs.get(issueNumber)).toString();
-			message = String.format("%s [%s/%s %s]:\n%s", ticketMessage,
+			message = String.format("%s [%s/%s %s]:\n%s", issueMessage,
 					buildServerAddress, buildUrl, buildDN, scmMessages);
 		} else {
-			message = String.format("%s [%s/%s %s]", ticketMessage,
+			message = String.format("%s [%s/%s %s]", issueMessage,
 					buildServerAddress, buildUrl, buildDN);
 		}
 
