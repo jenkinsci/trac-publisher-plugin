@@ -8,4 +8,7 @@
 	<f:entry title="${%Trac XMLRPC Password}" field="password">
 		<f:password field="password" />
 	</f:entry>
+	<f:entry title="${%Post Detailed Information}" field="useDetailedComments">
+		<f:checkbox field="useDetailedComments" />
+	</f:entry>
 </j:jelly>

@@ -30,12 +30,15 @@ public class TracPublisher extends Notifier {
 	public String rpcAddress;
 	public String username;
 	public String password;
+	public boolean useDetailedComments;
 
 	@DataBoundConstructor
-	public TracPublisher(String rpcAddress, String username, String password) {
+	public TracPublisher(String rpcAddress, String username, String password,
+			boolean useDetailedComments) {
 		this.rpcAddress = rpcAddress;
 		this.username = username;
 		this.password = password;
+		this.useDetailedComments = useDetailedComments;
 	}
 
 	public BuildStepMonitor getRequiredMonitorService() {
@@ -50,8 +53,8 @@ public class TracPublisher extends Notifier {
 	@Override
 	public boolean perform(AbstractBuild<?, ?> build, Launcher launcher,
 			BuildListener listener) throws InterruptedException, IOException {
-		new TracIssueUpdater(build, listener, rpcAddress, username, password)
-				.updateIssues();
+		new TracIssueUpdater(build, listener, rpcAddress, username, password,
+				useDetailedComments).updateIssues();
 		return true;
 	}
 
@@ -66,6 +69,7 @@ public class TracPublisher extends Notifier {
 		private String rpcAddress;
 		private String username;
 		private String password;
+		private boolean useDetailedComments;
 
 		@Override
 		public boolean isApplicable(Class<? extends AbstractProject> jobType) {
@@ -84,6 +88,7 @@ public class TracPublisher extends Notifier {
 			rpcAddress = json.getString("rpcAddress");
 			username = json.getString("username");
 			password = json.getString("password");
+			useDetailedComments = json.getBoolean("useDetailedComments");
 
 			save();
 
@@ -101,5 +106,10 @@ public class TracPublisher extends Notifier {
 		public String getPassword() {
 			return password;
 		}
+
+		public boolean isUseDetailedComments() {
+			return useDetailedComments;
+		}
+
 	}
 }

@@ -11,6 +11,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -40,17 +41,25 @@ public class TracIssueUpdater {
 	String rpcAddress;
 	String username;
 	String password;
+	boolean useDetailedComments;
 	PrintStream log;
 
+	HashMap<Integer, StringBuilder> priorIssueRefs;
+	HashMap<Integer, StringBuilder> issueRefs;
+
 	public TracIssueUpdater(AbstractBuild<?, ?> build, BuildListener listener,
-			String rpcAddress, String username, String password) {
+			String rpcAddress, String username, String password,
+			boolean useDetailedComments) {
 		this.build = build;
 		this.listener = listener;
 		this.buildServerAddress = Jenkins.getInstance().getRootUrl();
 		this.rpcAddress = rpcAddress;
 		this.username = username;
 		this.password = password;
+		this.useDetailedComments = useDetailedComments;
 		this.log = listener.getLogger();
+		priorIssueRefs = new HashMap<Integer, StringBuilder>();
+		issueRefs = new HashMap<Integer, StringBuilder>();
 	}
 
 	/**
@@ -65,18 +74,30 @@ public class TracIssueUpdater {
 
 		if (Result.SUCCESS.equals(result)) {
 
-			Set<Integer> correctedIssues = new HashSet<Integer>();
-			Set<Integer> successfulIssues = new HashSet<Integer>();
-
 			// Scan for failed builds prior to this one, and include them.
 			AbstractBuild<?, ?> priorBuild = build.getPreviousBuild();
 			while (priorBuild != null
 					&& !Result.SUCCESS.equals(priorBuild.getResult())) {
-				correctedIssues.addAll(getIssueRefs(priorBuild));
+				HashMap<Integer, StringBuilder> priorRefs = getIssueRefs(priorBuild);
+				for (Map.Entry<Integer, StringBuilder> entry : priorRefs
+						.entrySet()) {
+					if (!priorIssueRefs.containsKey(entry.getKey()))
+						priorIssueRefs.put(entry.getKey(), entry.getValue());
+					else
+						priorIssueRefs.get(entry.getKey()).append('\n')
+								.append(entry.getValue());
+				}
 				priorBuild = priorBuild.getPreviousBuild();
 			}
 
-			successfulIssues.addAll(getIssueRefs(build));
+			Set<Integer> correctedIssues = new HashSet<Integer>(
+					priorIssueRefs.keySet());
+
+			issueRefs = getIssueRefs(build);
+			Set<Integer> successfulIssues = new HashSet<Integer>(
+					issueRefs.keySet());
+
+			successfulIssues.addAll(issueRefs.keySet());
 
 			// Only update once, direct ref supercedes prior ref
 			correctedIssues.removeAll(successfulIssues);
@@ -104,11 +125,9 @@ public class TracIssueUpdater {
 	private void updateCorrectedIssue(Integer issue)
 			throws MalformedURLException {
 		try {
-			String buildDN = build.getFullDisplayName();
-			String buildUrl = build.getUrl();
-			log.format("Updating corrected issue %d with %s\n:", issue, buildDN);
-			updateIssue("Referenced in unsuccessful builds prior to", issue,
-					buildDN, buildUrl);
+			log.format("Updating corrected issue %d with %s\n:", issue,
+					build.getDisplayName());
+			updateIssue(issue, true);
 		} catch (XmlRpcException e) {
 			e.printStackTrace();
 		}
@@ -124,25 +143,24 @@ public class TracIssueUpdater {
 	private void updateSuccessfulIssue(Integer issue)
 			throws MalformedURLException {
 		try {
-			String buildDN = build.getFullDisplayName();
-			String buildUrl = build.getUrl();
 			log.format("Updating successful issue %d with %s\n:", issue,
-					buildDN);
-			updateIssue("Referenced in build", issue, buildDN, buildUrl);
+					build.getDisplayName());
+			updateIssue(issue, false);
 		} catch (XmlRpcException e) {
 			e.printStackTrace();
 		}
 	}
 
 	/**
-	 * Returns a list of issue ids referenced in the given build's changeset
-	 * messages.
+	 * Returns a map of issue ids to scm messages that reference them in the
+	 * given build.
 	 * 
 	 * @param build
 	 * @return a set of issues referenced or an empty list (never null)
 	 */
-	private Set<Integer> getIssueRefs(AbstractBuild<?, ?> build) {
-		Set<Integer> referencedIssues = new HashSet<Integer>();
+	private HashMap<Integer, StringBuilder> getIssueRefs(
+			AbstractBuild<?, ?> build) {
+		HashMap<Integer, StringBuilder> referencedIssues = new HashMap<Integer, StringBuilder>();
 		ChangeLogSet<? extends Entry> changes = build.getChangeSet();
 		for (Entry change : changes) {
 			String message = change.getMsg();
@@ -150,7 +168,10 @@ public class TracIssueUpdater {
 			while (matcher.find()) {
 				String issueString = matcher.group(1);
 				Integer issue = Integer.parseInt(issueString);
-				referencedIssues.add(issue);
+				if (!referencedIssues.containsKey(issue))
+					referencedIssues.put(issue, new StringBuilder(message));
+				else
+					referencedIssues.get(issue).append('\n').append(message);
 			}
 		}
 		return referencedIssues;
@@ -160,7 +181,6 @@ public class TracIssueUpdater {
 	 * Performs the actual issue update using XMLRPC to a Trac instance with a
 	 * configured XMLRPC plugin and ticket updates enabled.
 	 * 
-	 * @param ticketMessage
 	 * @param issueNumber
 	 * @param buildName
 	 * @param url
@@ -168,9 +188,8 @@ public class TracIssueUpdater {
 	 * @throws XmlRpcException
 	 */
 	@SuppressWarnings("rawtypes")
-	private void updateIssue(String ticketMessage, Integer issueNumber,
-			String buildName, String url) throws MalformedURLException,
-			XmlRpcException {
+	private void updateIssue(Integer issueNumber, boolean isCorrected)
+			throws MalformedURLException, XmlRpcException {
 		XmlRpcClient client = new XmlRpcClient();
 		client.setTransportFactory(new XmlRpcCommonsTransportFactory(client));
 		XmlRpcClientConfigImpl config = new XmlRpcClientConfigImpl();
@@ -178,10 +197,39 @@ public class TracIssueUpdater {
 		config.setBasicPassword(password);
 		config.setServerURL(new URL(rpcAddress));
 		client.setConfig(config);
-		String message = String.format("%s [%s/%s %s]", ticketMessage,
-				buildServerAddress, url, buildName);
+
+		String message = createMessage(issueNumber, isCorrected);
+
 		Object[] params = new Object[] { issueNumber, message, new HashMap(),
 				Boolean.FALSE };
 		client.execute("ticket.update", params);
+	}
+
+	/**
+	 * Generates a message based on the specified message and the internal state
+	 * of the updater.
+	 * 
+	 * @param ticketMessage
+	 * @return
+	 */
+	private String createMessage(Integer issueNumber, boolean isCorrected) {
+
+		String message = "";
+		String buildDN = build.getFullDisplayName();
+		String buildUrl = build.getUrl();
+		String ticketMessage = isCorrected ? "Referenced in unsuccessful builds prior to"
+				: "Referenced in build";
+
+		if (useDetailedComments) {
+			String scmMessages = (isCorrected ? priorIssueRefs.get(issueNumber)
+					: issueRefs.get(issueNumber)).toString();
+			message = String.format("%s [%s/%s %s]:\n%s", ticketMessage,
+					buildServerAddress, buildUrl, buildDN, scmMessages);
+		} else {
+			message = String.format("%s [%s/%s %s]", ticketMessage,
+					buildServerAddress, buildUrl, buildDN);
+		}
+
+		return message;
 	}
 }
