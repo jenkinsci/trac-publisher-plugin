@@ -13,6 +13,8 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -22,8 +24,6 @@ import org.apache.xmlrpc.XmlRpcException;
 import org.apache.xmlrpc.client.XmlRpcClient;
 import org.apache.xmlrpc.client.XmlRpcClientConfigImpl;
 import org.apache.xmlrpc.client.XmlRpcCommonsTransportFactory;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Encapsulates the updating of Trac issues from Jenkins. An instance is meant
@@ -35,7 +35,7 @@ import org.slf4j.LoggerFactory;
  */
 public class TracIssueUpdater {
 
-	private static Logger log = LoggerFactory.getLogger(TracIssueUpdater.class);
+	private static Logger log = Logger.getLogger(TracIssueUpdater.class.getName());
 
 	Pattern issuePattern = Pattern.compile("[#](\\d+)");
 
@@ -134,7 +134,7 @@ public class TracIssueUpdater {
 					build.getDisplayName());
 			updateIssue(issue, true);
 		} catch (XmlRpcException e) {
-			log.error("failed to update corrected issue", e);
+			log.log(Level.SEVERE, "failed to update corrected issue", e);
 		}
 	}
 
@@ -152,7 +152,7 @@ public class TracIssueUpdater {
 					build.getDisplayName());
 			updateIssue(issue, false);
 		} catch (XmlRpcException e) {
-			log.error("failed to update successful issue", e);
+			log.log(Level.SEVERE, "failed to update successful issue", e);
 		}
 	}
 
