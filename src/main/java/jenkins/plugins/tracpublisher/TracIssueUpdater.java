@@ -106,10 +106,19 @@ public class TracIssueUpdater {
 			// Only update once, direct ref supercedes prior ref
 			correctedIssues.removeAll(successfulIssues);
 
-			if (correctedIssues.size() + successfulIssues.size() > 0)
+			if (correctedIssues.size() + successfulIssues.size() > 0) {
 				buildLog.format(
 						"Updating %d Trac issue(s): server=%s, user=%s\n",
 						successfulIssues.size(), rpcAddress, username);
+				if (this.buildServerAddress == null) {
+					buildLog.println("Jenkins URL was null, please configure to enable issue updating.");
+					return;
+				}
+				if (this.rpcAddress == null) {
+					buildLog.println("Trac XMLRPC URL was null, please configure your build to enable issue updating.");
+					return;
+				}
+			}
 
 			for (Integer issue : successfulIssues)
 				updateSuccessfulIssue(issue);
